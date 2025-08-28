@@ -45,7 +45,7 @@
   </p>
 
   <p style="margin: 1rem 0 0.2rem; max-width: 820px;">
-    Official PyTorch implementation and resources for </br><strong>SegDAC</strong>: <strong>Seg</strong>mentation-<strong>D</strong>riven <storng>A</storng>ctor-<storng>C</storng>ritic for Visual Reinforcement Learning
+    Official PyTorch implementation and resources for <strong>SegDAC</strong>
 
   </p>
 
