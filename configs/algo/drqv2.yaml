@@ -1,0 +1,76 @@
+name: "drqv2"
+
+# Config taken from https://github.com/facebookresearch/drqv2/blob/main/cfgs/config.yaml
+
+repr_dim: 39200 # https://github.com/facebookresearch/drqv2/blob/c0c650b76c6e5d22a7eb5f2edffd1440fe94f8ef/drqv2.py#L53C25-L53C37
+action_dim: 0 # This set automatically in code (see config updater)
+feature_dim: 50
+hidden_dim: 1024
+frame_stack: 3
+stddev_schedule: "linear(0.0, 1.0, 1000000)"
+n_step_return: 3
+
+agent:
+  _partial_: true
+  _target_: drqv2.agent.Drqv2Agent
+  action_sampling_strategy:
+    _partial_: true
+    _target_: drqv2.agent.Drqv2ActionSamplingStrategy
+    actor:
+      _target_: drqv2.agent.Actor
+      repr_dim: ${algo.repr_dim}
+      action_dim: ${algo.action_dim}
+      feature_dim: ${algo.feature_dim}
+      hidden_dim: ${algo.hidden_dim}
+    stddev_schedule: ${algo.stddev_schedule}
+    num_expl_steps: ${oc.select:training.data_collector.init_random_frames,0}
+  action_dim: ${algo.action_dim}
+  device: ${policy_device}
+  feature_dim: ${algo.feature_dim}
+  lr: 1e-4
+  hidden_dim: ${algo.hidden_dim}
+  critic_target_tau: 0.01
+  num_expl_steps: ${oc.select:training.data_collector.init_random_frames,0}
+  update_every_steps: 2
+  stddev_schedule: ${algo.stddev_schedule}
+  stddev_clip: 0.3
+  gamma: 0.80
+  num_channels: 0 # This set automatically in code depending on frame_stack (see config updater)
+
+config_updater:
+  _target_: segdac_dev.config.drqv2_config_updaters.Drqv2ConfigUpdater
+
+env:
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels"
+      out_key: "pixels"
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels"
+      out_key: "pixels"
+
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude: []
+  pre_save_transforms: 
+    - _target_: segdac_dev.replay_buffers.transforms.n_step_return.NStepReturnTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+      n_step: ${algo.n_step_return}
+      gamma: ${algo.agent.gamma}
+      compute_all_truncated_returns: false
+  save_transforms: []
+  sample_transforms: []

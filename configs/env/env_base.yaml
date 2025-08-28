@@ -1,0 +1,8 @@
+defaults:
+  - _self_
+
+action_repeat: 1
+pixels:
+  height: 84
+  width: 84
+batched_env: false

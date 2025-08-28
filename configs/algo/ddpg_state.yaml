@@ -1,0 +1,101 @@
+name: "ddpg_state"
+
+agent:
+  _partial_: true
+  _target_: segdac.agents.ddpg.agent.DdpgAgent
+  action_sampling_strategy:
+    _target_: segdac.agents.action_sampling_strategy.OrnsteinUhlenbeckNoiseActionSamplingStrategy
+    actor:
+      _target_: segdac.agents.ddpg.actor.DdpgActor
+      target_params_updater: ${algo.target_params_updater}
+      network:
+        _target_: segdac.networks.network_wrapper.ActorTensorDictNetworkWrapper
+        network:
+          _target_: segdac.networks.mlp.Mlp
+          in_features: 0 # This is set automatically in code
+          hidden_depth: 3
+          input_norm_class:
+            _partial_: true
+            _target_: torch.nn.LayerNorm
+          hidden_neurons: 256
+          hidden_activation_class:
+            _partial_: true
+            _target_: torch.nn.ReLU
+          output_activation_class:
+            _partial_: true
+            _target_: torch.nn.Tanh
+          out_features: 0 # This is set automatically in code
+        in_keys:
+          - "state"
+      optimizer:
+        _partial_: true
+        _target_: torch.optim.Adam
+        lr: 3e-4
+      max_grad_norm: null
+    device: ${policy_device}
+    seed: ${training.seed}
+    eps_init: 1.0
+    eps_end: 0.1
+    annealing_num_steps: 1_000_000
+    theta: 0.15
+    mu: 0.0
+    sigma: 0.2
+  critic:
+    _target_: segdac.agents.ddpg.critic.DdpgCritic
+    target_params_updater: ${algo.target_params_updater}
+    gamma: 0.8
+    q_function: ${algo.q_function}
+    q_function_loss:
+      _target_: torch.nn.MSELoss
+    q_function_optimizer:
+      _partial_: true
+      _target_: torch.optim.Adam
+      lr: 3e-3
+    max_grad_norm: null
+  critic_update_frequency: 1
+  actor_update_frequency: 1
+  target_networks_update_frequency: 2
+
+q_function:
+  _target_: segdac.networks.network_wrapper.CriticTensorDictNetworkWrapper
+  network:
+    _target_: segdac.networks.mlp.Mlp
+    in_features: 0 # This is set automatically in code based on the environment
+    hidden_depth: 3
+    hidden_neurons: 256
+    hidden_activation_class:
+      _partial_: true
+      _target_: torch.nn.ReLU
+    output_activation_class:
+      _partial_: true
+      _target_: torch.nn.Identity
+    out_features: 1
+  in_keys:
+    - "state"
+    - "action"
+
+target_params_updater:
+  _target_: segdac.agents.target_networks_params_updaters.polyak_average_updater.PolyakAverageParametersUpdater
+  tau: 0.005
+
+config_updater:
+  _target_: segdac_dev.config.ddpg_config_updaters.DdpgStateConfigUpdater
+
+env:
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${training.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.init_tracker.InitTrackerTransform # Needed for OU noise
+      device: ${policy_device}
+      num_envs: ${training.env_config.num_envs}
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude: ["pixels"]
+  save_transforms: []
+  sample_transforms: []

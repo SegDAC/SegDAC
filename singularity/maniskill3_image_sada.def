@@ -1,0 +1,77 @@
+Bootstrap: docker
+From: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+
+%files
+    ./envs/maniskill3/environment.yaml /my_container/setup/envs/maniskill3/environment.yaml
+    ./segdac_dev/requirements.txt /my_container/setup/segdac_dev/requirements.txt
+    ./segdac/requirements.txt /my_container/setup/segdac/requirements.txt
+    ./segdac/install_dependencies.sh /my_container/setup/segdac/install_dependencies.sh
+    ./baselines/sada/requirements.txt /my_container/setup/baselines/sada/requirements.txt
+    ./baselines/sada/install_dependencies.sh /my_container/setup/baselines/sada/install_dependencies.sh
+%post
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update \
+        && apt-get install -y --no-install-recommends \
+                build-essential \
+                software-properties-common \
+                ca-certificates \
+                cmake \
+                wget \
+                curl \
+                unzip \
+                libegl1 \
+                libxext6 \
+                libjpeg-dev \
+                libpng-dev  \
+                libvulkan1 \
+                vulkan-tools \
+        && rm -rf /var/lib/apt/lists/*
+        
+        # Update and register CA certificates if not done already, needed to avoid SSL error on narval
+        update-ca-certificates
+        mkdir -p /etc/pki/tls/certs
+        ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
+        
+        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /my_container/setup/miniconda.sh
+        bash /my_container/setup/miniconda.sh -b -p /opt/conda
+        rm /my_container/setup/miniconda.sh
+
+        export PATH="/opt/conda/bin:$PATH"
+
+        mkdir /code/
+        mkdir /dataset/
+        mkdir /tmp_job_data/
+        mkdir /final_job_data/
+
+        cd /my_container/setup/
+        conda env create --file envs/maniskill3/environment.yaml -y
+        . /opt/conda/etc/profile.d/conda.sh
+        conda activate /opt/conda/envs/maniskill3_env
+
+        export WEIGHTS_FOLDER=/tmp_job_data/weights
+        mkdir $WEIGHTS_FOLDER
+        
+        . segdac/install_dependencies.sh
+        . baselines/sada/install_dependencies.sh
+
+        conda clean -afy
+
+        mkdir -p /my_container/.sapien/physx/105.1-physx-5.3.1.patch0/
+        wget https://github.com/sapien-sim/physx-precompiled/releases/download/105.1-physx-5.3.1.patch0/linux-so.zip --directory-prefix=/my_container/.sapien/physx/105.1-physx-5.3.1.patch0/
+        unzip /my_container/.sapien/physx/105.1-physx-5.3.1.patch0/linux-so.zip -d /my_container/.sapien/physx/105.1-physx-5.3.1.patch0/
+        rm /my_container/.sapien/physx/105.1-physx-5.3.1.patch0/linux-so.zip
+
+%environment
+        export SHELL=/bin/bash
+        export DEBIAN_FRONTEND=noninteractive
+        export PATH="/opt/conda/envs/maniskill3_env/bin:/opt/conda/bin:$PATH"
+        export NVIDIA_DRIVER_CAPABILITIES=all
+        export PYTHONPATH="/code/SegDAC/segdac_dev/src/:/code/SegDAC/segdac/src/:/code/SegDAC/baselines/sada/src/:$PYTHONPATH"
+%runscript
+        rm -rf $HOME/.sapien/
+        mkdir -p $HOME/.sapien/
+        cp -r /my_container/.sapien/* $HOME/.sapien/
+        . /opt/conda/etc/profile.d/conda.sh
+        conda activate /opt/conda/envs/maniskill3_env
+        cd /code/SegDAC/
+        exec $@

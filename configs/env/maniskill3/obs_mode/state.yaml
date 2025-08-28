@@ -1,0 +1,2 @@
+_target_: segdac_dev.envs.maniskill3.obs_mode.StateObsMode
+camera_name: "base_camera"

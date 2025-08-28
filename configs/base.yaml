@@ -1,0 +1,8 @@
+dataset_dir: ./datasets
+tmp_job_data_dir: ./tmp_job_data
+final_job_data_dir: ./final_job_data
+logging:
+  video_fps: 30
+  videos_dir: "logs/videos/"
+  images_dir: "logs/images/"
+  assets_dir: "logs/assets/"

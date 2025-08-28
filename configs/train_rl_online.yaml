@@ -1,0 +1,47 @@
+defaults:
+  - _self_
+  - base
+  - algo: sac_state
+hydra:
+  run:
+    dir: ${tmp_job_data_dir}/outputs/${now:%Y-%m-%d_%H-%M-%S}/${experiment.type}_${env.name}
+experiment:
+  type: "train_rl_online"
+  name: null # Random by default
+  cluster_name: null
+  cluster_job_id: null
+logging:
+  frequency: 10_000
+  video_max_steps_per_traj: 50
+  video_max_steps: 500
+  video_width: 256
+  video_height: 256
+  save_model: true
+  agent_optimization_metric:
+    name: "eval_return"
+    maximize: true
+policy_device: "cuda"
+training:
+  seed: 42
+  batch_size: 128
+  num_updates_per_env_step: 5
+  env_config:
+    device: "cuda"
+    num_envs: 20
+    reconfiguration_freq: 0
+    ignore_terminations: false
+  data_collector:
+    total_frames: 1_000_000
+    init_random_frames: 5_000
+evaluation:
+  seed: 123
+  num_rollouts: 10
+  nb_segments_image_to_log: 5
+  env_config:
+    device: "cuda"
+    num_envs: 10
+    # https://maniskill.readthedocs.io/en/latest/user_guide/reinforcement_learning/setup.html#evaluation
+    reconfiguration_freq: 1
+    ignore_terminations: true
+logger:
+  _target_: segdac_dev.logging.loggers.cometml_logger.CometmlLogger

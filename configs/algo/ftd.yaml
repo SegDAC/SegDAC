@@ -1,0 +1,101 @@
+name: "ftd"
+
+# Config taken from paper and https://github.com/LAMDA-RL/FTD/blob/be17bd97fca7d502c34883fbd57b61ee5277e741/src/arguments.py
+
+frame_stack: 3
+
+agent_needs_rb: true
+
+agent:
+  _partial_: true
+  _target_: ftd.algorithms.image_selector_sac.Image_Selector_SAC
+  obs_shape: [12, 84, 84] # https://github.com/LAMDA-RL/FTD/blob/be17bd97fca7d502c34883fbd57b61ee5277e741/src/train.py#L120
+  action_shape: 0 # This set automatically in code (see config updater)
+  discount: 0.8
+  critic_tau: 0.01
+  encoder_tau: 0.05
+  actor_update_freq: 2
+  critic_target_update_freq: 2
+  unsupervised_update_freq: 1
+  unsupervised_update_num: 1
+  unsupervised_update_slow_freq: 50_000
+  frame_stack: ${algo.frame_stack}
+  channels: 3
+  masked_region_num: 9
+  attention_heads: 4
+  max_grad_norm: 5.0
+  reward_factor: 1.0
+  inv_factor: 1.0
+  fwd_factor: 0.0
+  reward_accumulate_steps: 1
+  inv_accumulate_steps: 1
+  fwd_accumulate_steps: 1
+  unsupervised_warmup_steps: 10_000
+  reward_first_sampling: false
+  num_selector_layers: 5
+  num_filters: 32
+  embed_dim: 128
+  num_shared_layers: 11
+  num_head_layers: 0
+  projection_dim: 100
+  hidden_dim: 1024
+  actor_log_std_min: -10
+  actor_log_std_max: 2
+  init_temperature: 0.1
+  actor_lr: 3e-4
+  actor_beta: 0.9
+  critic_lr: 3e-4
+  critic_beta: 0.9
+  alpha_lr: 1e-4
+  alpha_beta: 0.5
+  selector_lr: 1e-4
+  selector_beta: 0.9
+
+
+config_updater:
+  _target_: segdac_dev.config.ftd_config_updaters.FtdConfigUpdater
+
+env:
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - _target_: ftd.sam_env_transform.SamEnvTransform
+      device: ${policy_device}
+      in_key: "pixels"
+      out_key: "pixels_transformed"
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels_transformed"
+      out_key: "pixels_transformed"
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - _target_: ftd.sam_env_transform.SamEnvTransform
+      device: ${policy_device}
+      in_key: "pixels"
+      out_key: "pixels_transformed"
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels_transformed"
+      out_key: "pixels_transformed"
+
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude:
+    - "pixels"
+  pre_save_transforms: []
+  save_transforms: []
+  sample_transforms:
+    - _target_: segdac_dev.replay_buffers.transforms.torchrl.kornia_random_crop.KorniaRandomCropTransform
+      in_keys:
+        - "pixels_transformed"
+      out_keys:
+        - "pixels_transformed"
+      pad: 4
+      include_next: true

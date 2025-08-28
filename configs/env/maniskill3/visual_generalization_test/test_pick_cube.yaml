@@ -1,0 +1,162 @@
+defaults:
+  - _self_
+  - maniskill3_base
+
+id: "PickCubeTest-v1"
+max_frames_per_traj: 50
+control_mode: "pd_ee_delta_pos"
+log_success: true
+
+default_config:
+  camera:
+    look_at:
+      from: null
+      to: null
+    fov: null
+  lighting:
+    ambient_light_color: null
+    direction:
+      light_1: null
+      light_2: null
+  mo:
+    material:
+      base_color: null
+      texture: null
+      visual_file_path: null
+  table:
+    material:
+      base_color: null
+      texture: null
+  ground:
+    material:
+      base_color: null
+      texture: null
+# ===================================================
+easy:
+  camera_pose_test:
+    camera:
+      look_at:
+        from: [0.42, 0, 0.6]
+        to: [0.0, 0, 0.0]
+  camera_fov_test:
+    camera:
+      fov: 1.79519580205
+  lighting_direction_test:
+    lighting:
+      direction:
+        light_1: [0.0, 1.0, -1.0]
+        light_2: [0.0, 0.0, -1.0]
+  lighting_color_test:
+    lighting:
+      ambient_light_color: [0.8, 0.8, 0.8]
+  mo_color_test:
+    mo:
+      material:
+        base_color: [1, 0.05, 0, 1]
+  table_color_test:
+    table:
+      material:
+        base_color: [0.980392157, 0.31372549, 0, 1]
+  ground_color_test:
+    ground:
+      material:
+        base_color: [0.098039216, 0.098039216, 0.098039216, 1]
+  mo_texture_test:
+    mo:
+      material:
+        texture: "assets/cube/0_04/cube_red_metalic.png"
+        visual_file_path: "assets/cube/0_04/cube.glb"
+  table_texture_test:
+    table:
+      material:
+        texture: "assets/table/table_wood_orange.png"
+  ground_texture_test:
+    ground:
+      material:
+        texture: "assets/ground/ground_gray.png"
+# ===================================================
+medium:
+  camera_pose_test:
+    camera:
+      look_at:
+        from: [0.4, -0.3, 0.3]
+        to: [-0.3, 0.3, -0.1]
+  camera_fov_test:
+    camera:
+      fov: 2.09439510239
+  lighting_direction_test:
+    lighting:
+      direction:
+        light_1: [0, 0, -0.1]
+        light_2: [1, 1, -0.1]
+  lighting_color_test:
+    lighting:
+      ambient_light_color: [0.0, 0.0, 0.8]
+  mo_color_test:
+    mo:
+      material:
+        base_color: [0, 0, 1, 1]
+  table_color_test:
+    table:
+      material:
+        base_color: [0, 0, 1, 1]
+  ground_color_test:
+    ground:
+      material:
+        base_color: [0, 0, 1, 1]
+  mo_texture_test:
+    mo:
+      material:
+        texture: "assets/cube/0_04/cube_orange_blue_hex.png"
+        visual_file_path: "assets/cube/0_04/cube.glb"
+  table_texture_test:
+    table:
+      material:
+        texture: "assets/table/table_wood_dark.png"
+  ground_texture_test:
+    ground:
+      material:
+        texture: "assets/ground/ground_flower.png"
+# ===================================================
+hard:
+  camera_pose_test:
+    camera:
+      look_at:
+        from: [0.2, -0.9, 0.2]
+        to: [-0.2, 0.3, -0.2]
+  camera_fov_test:
+    camera:
+      fov: 2.51327412287
+  lighting_direction_test:
+    lighting:
+      direction:
+        light_1: [0, 0, 1]
+        light_2: [1, 1, 1]
+  lighting_color_test:
+    lighting:
+      ambient_light_color: [1.0, 0.0, 0.0]
+  mo_color_test:
+    mo:
+      material:
+        base_color: [0, 1, 0, 1]
+  table_color_test:
+    table:
+      material:
+        base_color: [1, 0.02, 0, 1]
+  ground_color_test:
+    ground:
+      material:
+        base_color: [1, 0, 0, 1]
+  mo_texture_test:
+    mo:
+      material:
+        texture: "assets/cube/0_04/cube_green_spheres.png"
+        visual_file_path: "assets/cube/0_04/cube.glb"
+  table_texture_test:
+    table:
+      material:
+        texture: "assets/table/table_chaos_cube_sphere.png"
+  ground_texture_test:
+    ground:
+      material:
+        texture: "assets/ground/ground_cube_sphere_carpet.png"

@@ -1,0 +1,190 @@
+defaults:
+  - _self_
+  - grounding_text_tags: push_cube
+
+name: "segdac_sac_sam_enc_decoder_q_cond"
+
+segments_embeddings_dim: 256 # Raw embedding output from SAM encoder's
+proprioception_dim: 9
+decoder_embedding_dim: 128
+actor_nb_query_tokens: 1
+action_projection_head_in_features: 128 # actor_nb_query_tokens * decoder_embedding_dim
+critic_nb_query_tokens: 1
+q_value_projection_head_in_features: 128 # critic_nb_query_tokens * decoder_embedding_dim
+
+agent:
+  _partial_: true
+  _target_: segdac.agents.segdac.agent.SegdacSacAgent
+  action_sampling_strategy:
+    _target_: segdac.agents.action_sampling_strategy.StochasticActionSamplingStrategy
+    actor:
+      _target_: segdac.agents.sac.actor.SacActor
+      network:
+        _target_: segdac.networks.actor.seg_driven.SegDacActorNetworkDecoderOnly
+        decoder:
+          _target_: segdac.networks.transformers.decoder.TransformerDecoder
+          num_layers: 6
+          embedding_dim: ${algo.decoder_embedding_dim}
+          num_heads: 8
+          d_ff: 1024
+          dropout: 0.
+          device: ${policy_device}
+        embedding_dim: ${algo.decoder_embedding_dim}
+        nb_query_tokens: ${algo.actor_nb_query_tokens}
+        action_projection_head:
+          _target_: segdac.networks.residual_mlp.ResidualMLP
+          in_features: ${algo.action_projection_head_in_features}
+          hidden_neurons: [256, 256, 256]
+          out_features: 0 # This is set automatically in code
+          norm_class:
+            _partial_: true
+            _target_: torch.nn.LayerNorm
+          activation_class:
+            _partial_: true
+            _target_: torch.nn.ReLU
+          use_input_norm: true
+          use_final_norm: true
+          use_final_act: false # Tanh is applied automatically in code when sampling actions
+        segments_embeddings_dim: ${algo.segments_embeddings_dim}
+        proprioception_dim: ${algo.proprioception_dim}
+      policy_optimizer:
+        _partial_: true
+        _target_: torch.optim.Adam
+        lr: 3e-4
+        weight_decay: 0
+      entropy_optimizer:
+        _partial_: true
+        _target_: torch.optim.Adam
+        lr: 3e-4
+      device: ${policy_device}
+      action_dim: 0 # This is set automatically in code
+      distribution_factory: ${algo.distribution_factory}
+      initial_entropy: 1.0
+      max_grad_norm: null
+    distribution_factory: ${algo.distribution_factory}
+  critic:
+    _target_: segdac.agents.sac.critic.SacCritic
+    target_params_updater: ${algo.target_params_updater}
+    gamma: 0.80
+    q_function_1: ${algo.q_function}
+    q_function_2: ${algo.q_function}
+    q_function_loss:
+      _target_: torch.nn.MSELoss
+    q_function_optimizer:
+      _partial_: true
+      _target_: torch.optim.Adam
+      lr: 5e-4
+      weight_decay: 0
+    distribution_factory: ${algo.distribution_factory}
+    device: ${policy_device}
+    max_grad_norm: null
+  critic_update_frequency: 1
+  actor_update_frequency: 1
+  target_networks_update_frequency: 2
+
+target_params_updater:
+  _target_: segdac.agents.target_networks_params_updaters.polyak_average_updater.PolyakAverageParametersUpdater
+  tau: 0.01
+
+distribution_factory:
+  _target_: segdac.agents.distribution_factory.SquashedNormalFactory
+  min_logstd: -10
+  max_logstd: 2
+
+q_function:
+  _target_: segdac.networks.critic.seg_driven.SegDacCriticNetworkDecoderOnly
+  decoder:
+    _target_: segdac.networks.transformers.decoder.TransformerDecoder
+    num_layers: 6
+    embedding_dim: ${algo.decoder_embedding_dim}
+    num_heads: 8
+    d_ff: 1024
+    dropout: 0.
+    device: ${policy_device}
+  embedding_dim: ${algo.decoder_embedding_dim}
+  nb_query_tokens: ${algo.critic_nb_query_tokens}
+  q_value_projection_head:
+    _target_: segdac.networks.residual_mlp.ResidualMLP
+    in_features: ${algo.decoder_embedding_dim}
+    hidden_neurons: [256, 256, 256]
+    out_features: 1
+    norm_class:
+      _partial_: true
+      _target_: torch.nn.LayerNorm
+    activation_class:
+      _partial_: true
+      _target_: torch.nn.ReLU
+    use_input_norm: true
+    use_final_norm: true
+    use_final_act: false
+  segments_embeddings_dim: ${algo.segments_embeddings_dim}
+  proprioception_dim: ${algo.proprioception_dim}
+  action_dim: 0 # This is set automatically in code
+
+config_updater:
+  _target_: segdac_dev.config.segdac_config_updaters.SegdacSacConfigUpdater
+
+env:
+  transforms:
+    tofloat32:
+      _target_: segdac_dev.envs.transforms.to_float32.ToFloat32Transform
+      device: ${policy_device}
+      in_key: "pixels"
+      out_key: "pixels_transformed"
+    grounded_seg:
+      _target_: segdac_dev.envs.transforms.grounded_segmentation.GroundedSegmentationWithSamEncoderEmbeddingsTransform
+      device: ${policy_device}
+      segmentation_model:
+        _target_: segdac.networks.image_segmentation_models.grounded_efficientvit_sam.GroundedEfficientVitSam
+        device: ${policy_device}
+        grounding_text_tags: ${algo.grounding_text_tags}
+        object_detector_weights_path: "./weights/yolov8s-worldv2.pt"
+        object_detection_confidence_threshold: 0.0001
+        object_detection_iou_threshold: 0.01
+        segmenter_model_name: "efficientvit-sam-l0"
+        segmenter_weights_path: "./weights/efficientvit_sam_l0.pt"
+        masks_post_process_kernel_size: 9
+    seg_encoder:
+      _target_: segdac_dev.envs.transforms.segments_encoder.SamEncoderEmbeddingsSegmentsEncoderTransform
+      device: ${policy_device}
+      segments_encoder:
+        _target_: segdac.networks.segments_encoders.sam_encoder_segments_encoder.SamEncoderEmbeddingsSegmentsEncoder
+        segmenter_image_size: 512
+        min_pixels: 4
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - _target_: segdac_dev.envs.transforms.image_ids.ImageIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - ${algo.env.transforms.tofloat32}
+    - ${algo.env.transforms.grounded_seg}
+    - ${algo.env.transforms.seg_encoder}
+    - _target_: segdac_dev.envs.transforms.segmentation_data_image_ids.SegmentationDataImageIdsTransform
+      device: ${policy_device}
+    - _target_: segdac_dev.envs.transforms.segmentation_data_traj_ids.SegmentationDataTrajIdsTransform
+      device: ${policy_device}
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.image_ids.ImageIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - ${algo.env.transforms.tofloat32}
+    - ${algo.env.transforms.grounded_seg}
+    - ${algo.env.transforms.seg_encoder}
+    - _target_: segdac_dev.envs.transforms.segmentation_data_image_ids.SegmentationDataImageIdsTransform
+      device: ${policy_device}
+    - _target_: segdac_dev.envs.transforms.segmentation_data_traj_ids.SegmentationDataTrajIdsTransform
+      device: ${policy_device}
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude: ["sam_encoder_embeddings", "pixels", "pixels_transformed"]
+  save_transforms: []
+  sample_transforms: []
+  segments_data_keys_to_save:
+    - "segments_encoder_output"
+  segments_sample_transforms: []
+  max_nb_segments_per_image: 30

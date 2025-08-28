@@ -1,0 +1,56 @@
+name: "sada"
+
+# Config taken from https://github.com/aalmuzairee/dmcgb2/blob/c760b72bbe357f8ed59f3b0884151c049ef1ece7/cfgs/config.yaml
+
+
+frame_stack: 3
+
+
+agent:
+  _partial_: true
+  _target_: sada.algos.sada.SadaAgent
+  obs_shape: [9, 84, 84]
+  action_shape: 0 # This set automatically in code (see config updater)
+  device: ${policy_device}
+  lr: 5e-4
+  feature_dim: 50
+  hidden_dim: 1024
+  critic_target_tau: 0.01
+  update_every_steps: 2
+  init_temperature: 0.1
+  log_std_bounds: [-10, 2]
+  strong_augs: ['all']
+  discount: 0.8
+  dataset_dir: "/network/scratch/b/browna/datasets/places365_standard/"
+
+config_updater:
+  _target_: segdac_dev.config.sada_config_updaters.SadaConfigUpdater
+
+env:
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels"
+      out_key: "pixels"
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels"
+      out_key: "pixels"
+
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude: []
+  pre_save_transforms: []
+  save_transforms: []
+  sample_transforms: []

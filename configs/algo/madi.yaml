@@ -1,0 +1,82 @@
+name: "madi"
+
+# Config taken from paper and https://github.com/AlexandreBrown/mask-distractions/blob/70982ce089e94b44f2213b7ba4da662be7199086/src/arguments.py
+
+frame_stack: 3
+
+agent:
+  _partial_: true
+  _target_: madi.algorithms.madi.MaDi
+  obs_shape: [0, 84, 84] # First dim is set automatically in code (see config updater)
+  action_shape: 0 # This set automatically in code (see config updater)
+  discount: 0.8
+  critic_tau: 0.01
+  encoder_tau: 0.05
+  actor_update_freq: 2
+  critic_target_update_freq: 2
+  num_shared_layers: 11
+  num_filters: 32
+  num_head_layers: 0
+  projection_dim: 100
+  hidden_dim: 1024
+  actor_log_std_min: -10
+  actor_log_std_max: 2
+  init_temperature: 0.1
+  actor_lr: 1e-3
+  actor_beta: 0.9
+  critic_lr: 1e-3
+  critic_beta: 0.9
+  critic_weight_decay: 0.0
+  alpha_lr: 1e-4
+  alpha_beta: 0.5
+  svea_alpha: 0.5
+  svea_beta: 0.5
+  augment: overlay
+  overlay_alpha: 0.5
+  frame_stack: ${algo.frame_stack}
+  masker_num_filters: 32
+  masker_num_layers: 3
+  mask_type: soft
+  mask_threshold: 0.5
+  mask_threshold_type: fix
+  masker_lr: 1e-3
+  masker_beta: 0.9
+  dataset_dir: "datasets/places365_standard/"
+
+config_updater:
+  _target_: segdac_dev.config.madi_config_updaters.MadiConfigUpdater
+
+env:
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels"
+      out_key: "pixels"
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+      history_size: ${algo.frame_stack}
+      in_key: "pixels"
+      out_key: "pixels"
+
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude: []
+  pre_save_transforms: []
+  save_transforms: []
+  sample_transforms:
+    - _target_: segdac_dev.replay_buffers.transforms.torchrl.kornia_random_crop.KorniaRandomCropTransform
+      in_keys:
+        - "pixels"
+      out_keys:
+        - "pixels"
+      pad: 4

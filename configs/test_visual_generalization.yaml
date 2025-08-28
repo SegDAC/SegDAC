@@ -1,0 +1,103 @@
+defaults:
+  - _self_
+  - base
+  - algo@algo_1: drqv2
+  - algo@algo_2: drqv2
+  - algo@algo_3: drqv2
+  - algo@algo_4: drqv2
+  - algo@algo_5: drqv2
+  - algo@algo_6: drqv2
+  - algo@algo_7: drqv2
+  - algo@algo_8: drqv2
+  - env@env_1: maniskill3/visual_generalization_test/test_push_cube
+  - env/maniskill3/obs_mode@env_1.maniskill3.obs_mode: proprio_rgb
+  - env@env_2: maniskill3/visual_generalization_test/test_pull_cube
+  - env/maniskill3/obs_mode@env_2.maniskill3.obs_mode: proprio_rgb
+  - env@env_3: maniskill3/visual_generalization_test/test_pick_cube
+  - env/maniskill3/obs_mode@env_3.maniskill3.obs_mode: proprio_rgb
+  - env@env_4: maniskill3/visual_generalization_test/test_poke_cube
+  - env/maniskill3/obs_mode@env_4.maniskill3.obs_mode: proprio_rgb
+  - env@env_5: maniskill3/visual_generalization_test/test_pull_cube_tool
+  - env/maniskill3/obs_mode@env_5.maniskill3.obs_mode: proprio_rgb
+  - env@env_6: maniskill3/visual_generalization_test/test_lift_peg_upright
+  - env/maniskill3/obs_mode@env_6.maniskill3.obs_mode: proprio_rgb
+  - env@env_7: maniskill3/visual_generalization_test/test_humanoid_g1_place_apple_in_bowl
+  - env/maniskill3/obs_mode@env_7.maniskill3.obs_mode: proprio_rgb
+  - env@env_8: maniskill3/visual_generalization_test/test_humanoid_g1_transport_box
+  - env/maniskill3/obs_mode@env_8.maniskill3.obs_mode: proprio_rgb
+hydra:
+  run:
+    dir: ${tmp_job_data_dir}/outputs/${now:%Y-%m-%d_%H-%M-%S}/${experiment.type}
+experiment:
+  type: "test_visual_generalization"
+  name: null # Random by default
+  cluster_name: null
+  cluster_job_id: null
+policy_device: "cuda"
+agent_weights:
+  env_1:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+  env_2:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+  env_3:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+  env_4:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+  env_5:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+  env_6:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+  env_7:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+  env_8:
+    - 'weights/model_seed1.pt'
+    - 'weights/model_seed2.pt'
+    - 'weights/model_seed3.pt'
+    - 'weights/model_seed4.pt'
+    - 'weights/model_seed5.pt'
+logging:
+  num_rollouts: 2
+  video_width: 256
+  video_height: 256
+metrics_aggregation:
+  reps: 50_000
+  confidence_interval_size: 0.95
+evaluation:
+  seed: 12345
+  num_rollouts: 50
+  env_config:
+    device: "cuda"
+    num_envs: 50
+    # https://maniskill.readthedocs.io/en/latest/user_guide/reinforcement_learning/setup.html#evaluation
+    reconfiguration_freq: 1
+    ignore_terminations: true
+logger:
+  _target_: segdac_dev.logging.loggers.cometml_logger.CometmlLogger

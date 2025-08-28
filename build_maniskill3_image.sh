@@ -1,0 +1,1 @@
+sudo singularity build maniskill3_image_segdac.sif singularity/maniskill3_image_segdac.def

@@ -1,0 +1,150 @@
+name: "sac_sam_encoder"
+
+proprioception_dim: 9
+
+agent:
+  _partial_: true
+  _target_: segdac.agents.sac.agent.SacAgent
+  action_sampling_strategy:
+    _target_: segdac.agents.action_sampling_strategy.StochasticActionSamplingStrategy
+    actor:
+      _target_: segdac.agents.sac.actor.SacActor
+      network:
+        _target_: segdac.networks.network_wrapper.ActorTensorDictNetworkWrapper
+        network:
+          _target_: segdac.networks.mlp.Mlp
+          in_features: 0 # This is set automatically in code to be sam_enc_embed_dim + proprioception_dim
+          hidden_depth: 3
+          hidden_neurons: 256
+          hidden_skip: false
+          input_norm_class:
+            _partial_: true
+            _target_: torch.nn.LayerNorm
+          hidden_norm_class:
+            _partial_: true
+            _target_: torch.nn.Identity
+          hidden_activation_class:
+            _partial_: true
+            _target_: torch.nn.ReLU
+          has_output_layer: true
+          output_activation_class:
+            _partial_: true
+            _target_: torch.nn.Identity # Tanh is applied automatically in code when sampling actions
+          out_features: 0 # This is set automatically in code
+        in_keys:
+          - "global_image_embeddings"
+          - "proprioception"
+      policy_optimizer:
+        _partial_: true
+        _target_: torch.optim.Adam
+        lr: 3e-4
+        weight_decay: 0
+      entropy_optimizer:
+        _partial_: true
+        _target_: torch.optim.Adam
+        lr: 3e-4
+      device: ${policy_device}
+      action_dim: 0 # This is set automatically in code
+      distribution_factory: ${algo.distribution_factory}
+      initial_entropy: 1.0
+      max_grad_norm: null
+    distribution_factory: ${algo.distribution_factory}
+  critic:
+    _target_: segdac.agents.sac.critic.SacCritic
+    target_params_updater: ${algo.target_params_updater}
+    gamma: 0.80
+    q_function_1: ${algo.q_function}
+    q_function_2: ${algo.q_function}
+    q_function_loss:
+      _target_: torch.nn.MSELoss
+    q_function_optimizer:
+      _partial_: true
+      _target_: torch.optim.Adam
+      lr: 3e-3
+      weight_decay: 0
+    distribution_factory: ${algo.distribution_factory}
+    device: ${policy_device}
+    max_grad_norm: null
+  critic_update_frequency: 1
+  actor_update_frequency: 1
+  target_networks_update_frequency: 2
+
+target_params_updater:
+  _target_: segdac.agents.target_networks_params_updaters.polyak_average_updater.PolyakAverageParametersUpdater
+  tau: 0.01
+
+distribution_factory:
+  _target_: segdac.agents.distribution_factory.SquashedNormalFactory
+  min_logstd: -10
+  max_logstd: 2
+
+q_function:
+  _target_: segdac.networks.network_wrapper.CriticTensorDictNetworkWrapper
+  network:
+    _target_: segdac.networks.mlp.Mlp
+    in_features: 0 # This is set automatically in code
+    hidden_depth: 3
+    hidden_neurons: 256
+    hidden_skip: false
+    input_norm_class:
+      _partial_: true
+      _target_: torch.nn.Identity
+    hidden_norm_class:
+      _partial_: true
+      _target_: torch.nn.Identity
+    hidden_activation_class:
+      _partial_: true
+      _target_: torch.nn.ReLU
+    has_output_layer: true
+    output_activation_class:
+      _partial_: true
+      _target_: torch.nn.Identity
+    out_features: 1
+  in_keys:
+    - "global_image_embeddings"
+    - "proprioception"
+    - "action"
+
+config_updater:
+  _target_: segdac_dev.config.sac_sam_encoder_config_updaters.SamSamEncoderConfigUpdater
+
+env:
+  transforms:
+    tofloat32:
+      _target_: segdac_dev.envs.transforms.to_float32.ToFloat32Transform
+      device: ${policy_device}
+      in_key: "pixels"
+      out_key: "pixels_transformed"
+    img_encoder:
+      _target_: segdac_dev.envs.transforms.global_image_encoder_mean_pooled.GlobalImageEncoderMeanPooledTransform
+      device: ${policy_device}
+      image_encoder:
+        _target_: segdac.networks.image_encoders.sam.SamImageEncoder
+        segmenter_model_name: "efficientvit-sam-l0"
+        segmenter_weights_path: "weights/efficientvit_sam_l0.pt"
+      pool_dims:
+        - 2
+        - 3
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - _target_: segdac_dev.envs.transforms.image_ids.ImageIdsTransform
+      device: ${policy_device}
+      num_envs: ${oc.select:training.env_config.num_envs,0}
+    - ${algo.env.transforms.tofloat32}
+    - ${algo.env.transforms.img_encoder}
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.image_ids.ImageIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - ${algo.env.transforms.tofloat32}
+    - ${algo.env.transforms.img_encoder}
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude: ["sam_encoder_embeddings", "pixels", "pixels_transformed"]
+  save_transforms: []
+  sample_transforms: []

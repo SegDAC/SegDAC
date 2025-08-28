@@ -1,0 +1,184 @@
+name: "sac_ae"
+
+encoder_input_observation_key: "pixels_transformed"
+encoder_output_observation_key: "pixels_latent"
+encoder_output_dim: 50 # Image encoder output dimension
+actor_input_dim: 50 # encoder_output_dim + proprioception_dim if any
+
+agent:
+  _partial_: true
+  _target_: segdac.agents.sac_ae.agent.SacAeAgent
+  action_sampling_strategy:
+    _target_: segdac.agents.action_sampling_strategy.StochasticActionSamplingStrategy
+    actor:
+      _partial_: true
+      _target_: segdac.agents.sac_ae.actor.SacAeActor
+      network:
+        _target_: segdac.networks.network_wrapper.ActorTensorDictNetworkWrapper
+        network:
+          _target_: segdac.networks.mlp.Mlp
+          in_features: ${algo.actor_input_dim}
+          hidden_depth: 2
+          input_norm_class:
+            _partial_: true
+            _target_: torch.nn.LayerNorm
+          hidden_neurons: 1024
+          hidden_norm_class:
+            _partial_: true
+            _target_: torch.nn.Identity
+          hidden_activation_class:
+            _partial_: true
+            _target_: torch.nn.ReLU
+          output_activation_class:
+            _partial_: true
+            _target_: torch.nn.Identity # A Tanh is automatically applied from the distribution object so we use Identity here
+          out_features: 0 # This is set automatically in code
+        in_keys:
+          - ${algo.encoder_output_observation_key}
+      policy_optimizer:
+        _partial_: true
+        _target_: torch.optim.Adam
+        lr: 1e-4
+      entropy_optimizer:
+        _partial_: true
+        _target_: torch.optim.Adam
+        lr: 1e-4
+        betas:
+          - 0.5
+          - 0.999
+      device: ${policy_device}
+      action_dim: 0 # This is set automatically in code
+      distribution_factory: ${algo.distribution_factory}
+      initial_entropy: 1.0
+      max_grad_norm: null
+    distribution_factory: ${algo.distribution_factory}
+  critic:
+    _partial_: true
+    _target_: segdac.agents.sac_ae.critic.SacAeCritic
+    target_params_updater: ${algo.target_params_updater}
+    gamma: 0.8
+    q_function_1: ${algo.q_function}
+    q_function_2: ${algo.q_function}
+    q_function_loss:
+      _target_: torch.nn.MSELoss
+    q_function_optimizer:
+      _partial_: true
+      _target_: torch.optim.Adam
+      lr: 1e-3
+    distribution_factory: ${algo.distribution_factory}
+    device: ${policy_device}
+    max_grad_norm: null
+  critic_update_frequency: 1
+  actor_update_frequency: 1
+  target_networks_update_frequency: 2
+  encoder:
+    _target_: segdac.networks.network_wrapper.TensorDictNetworkWrapper
+    network:
+      _target_: segdac.networks.sac_ae.CnnPixelEncoder
+      in_channels: 9 # 3 RGB channels * 3 history
+      feature_dim: ${algo.encoder_output_dim}
+    in_keys:
+      - ${algo.encoder_input_observation_key}
+    out_key: ${algo.encoder_output_observation_key}
+  decoder:
+    _target_: segdac.networks.network_wrapper.TensorDictNetworkWrapper
+    network:
+      _target_: segdac.networks.sac_ae.CnnPixelDecoder
+      feature_dim: ${algo.encoder_output_dim}
+      out_channels: 9 # 3 RGB channels * 3 history
+    in_keys:
+      - ${algo.encoder_output_observation_key}
+    out_key: ${algo.encoder_input_observation_key}
+  encoder_optimizer:
+    _partial_: true
+    _target_: torch.optim.Adam
+    lr: 1e-3
+  decoder_optimizer:
+    _partial_: true
+    _target_: torch.optim.Adam
+    lr: 1e-3
+    weight_decay: 1e-7
+  decoder_latent_lambda: 1e-6
+  decoder_update_frequency: 1
+  encoder_target_params_updater:
+    _target_: segdac.agents.target_networks_params_updaters.polyak_average_updater.PolyakAverageParametersUpdater
+    tau: 0.05
+  encoder_input_observation_key: ${algo.encoder_input_observation_key}
+  encoder_output_observation_key: ${algo.encoder_output_observation_key}
+  
+distribution_factory:
+  _target_: segdac.agents.distribution_factory.SquashedNormalFactory
+  min_logstd: -10
+  max_logstd: 2
+
+q_function:
+  _target_: segdac.networks.network_wrapper.CriticTensorDictNetworkWrapper
+  network:
+    _target_: segdac.networks.mlp.Mlp
+    in_features: 0 # This is set automatically in code based on the environment
+    hidden_depth: 2
+    input_norm_class:
+      _partial_: true
+      _target_: torch.nn.Identity
+    hidden_neurons: 1024
+    hidden_norm_class:
+      _partial_: true
+      _target_: torch.nn.Identity
+    hidden_activation_class:
+      _partial_: true
+      _target_: torch.nn.ReLU
+    output_activation_class:
+      _partial_: true
+      _target_: torch.nn.Identity
+    out_features: 1
+  in_keys:
+    - ${algo.encoder_output_observation_key}
+    - "action"
+
+target_params_updater:
+  _target_: segdac.agents.target_networks_params_updaters.polyak_average_updater.PolyakAverageParametersUpdater
+  tau: 0.01
+
+config_updater:
+  _target_: segdac_dev.config.sac_ae_config_updaters.SacAeConfigUpdater
+
+env:
+  train_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${training.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${training.env_config.num_envs}
+      history_size: 3
+      in_key: "pixels"
+      out_key: "pixels"
+    - _target_: segdac_dev.envs.transforms.to_float32.ToFloat32Transform
+      device: ${policy_device}
+      in_key: "pixels"
+      out_key: ${algo.encoder_input_observation_key}
+  eval_transforms:
+    - _target_: segdac_dev.envs.transforms.traj_ids.TrajIdsTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+    - _target_: segdac_dev.envs.transforms.frame_stack.FrameStackTransform
+      device: ${policy_device}
+      num_envs: ${evaluation.env_config.num_envs}
+      history_size: 3
+      in_key: "pixels"
+      out_key: "pixels"
+    - _target_: segdac_dev.envs.transforms.to_float32.ToFloat32Transform
+      device: ${policy_device}
+      in_key: "pixels"
+      out_key: ${algo.encoder_input_observation_key}
+
+replay_buffer:
+  capacity: 1_000_000
+  keys_to_exclude: ["pixels_transformed", "pixels_latent"]
+  save_transforms: []
+  sample_transforms:
+    - _target_: segdac_dev.replay_buffers.transforms.torchrl.to_float32.ToFloat32Transform
+      in_keys: 
+        - "pixels"
+      out_keys:
+        - ${algo.encoder_input_observation_key}

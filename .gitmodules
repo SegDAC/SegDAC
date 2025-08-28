@@ -1,0 +1,20 @@
+[submodule "baselines/drqv2"]
+    path = baselines/drqv2
+    url = https://github.com/AlexandreBrown/drqv2
+    branch = segdac_baseline
+
+[submodule "baselines/madi"]
+    path = baselines/madi
+    url = https://github.com/AlexandreBrown/mask-distractions.git
+    branch = segdac_baseline
+
+[submodule "baselines/ftd"]
+    path = baselines/ftd
+    url = https://github.com/AlexandreBrown/FTD.git
+    branch = segdac_baseline
+
+[submodule "baselines/sada"]
+    path = baselines/sada
+    url = https://github.com/AlexandreBrown/dmcgb2.git
+    branch = segdac_baseline
+

@@ -1,0 +1,9 @@
+defaults:
+  - _self_
+  - maniskill3_base
+  - maniskill3/obs_mode: state
+
+id: "PickCubeVisual-v1"
+max_frames_per_traj: 50
+control_mode: "pd_ee_delta_pos"
+log_success: true

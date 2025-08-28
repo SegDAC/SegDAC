@@ -1,0 +1,14 @@
+defaults:
+  - _self_
+  - env_base
+
+factory:
+  _target_: segdac_dev.envs.maniskill3.factory.Maniskill3EnvFactory
+
+name: "maniskill3_${env.id}"
+num_envs: 1
+batched_env: true
+reconfiguration_freq: 1
+ignore_terminations: true
+record_trajectories: false
+save_trajectories_video: false
