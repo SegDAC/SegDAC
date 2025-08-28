@@ -25,6 +25,8 @@ Official repository of **SegDAC**, a **Seg**mentation-**D**riven **A**ctor-**C**
 - All evaluation and test results are stored as JSON files in the `notebooks/results` directory, this should allow you to compare to SegDAC without needing to re-train it yourself.
   - See the notebook under `notebooks/generate_eval_sample_efficiency_plots.ipynb` for an example on how to load the eval data.
   - See the notebook under `notebooks/generate_visual_generalization_benchmark_plots.ipynb` for an example on how to load the test data.
+- Sample efficiency results are stored under `https://github.com/SegDAC/SegDAC/tree/main/notebooks/results/eval/`
+- SegDAC test results are stored under `notebooks/results/test/segdac_sac_sam_enc_decoder_q_cond_final_aggregated_scores-0.json`, here final refers to the weights after 1M training steps (as used in the paper).
 
 ## Training
 Note : The setup assumes you are at the root of this repository, all setup scripts assume this.  
